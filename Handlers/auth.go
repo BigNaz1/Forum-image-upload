@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/gofrs/uuid/v5"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -36,8 +36,16 @@ var (
 		Endpoint:     github.Endpoint,
 	}
 
-	oauthStateString = uuid.New().String()
+	oauthStateString string
 )
+
+func init() {
+	u, err := uuid.NewV4()
+	if err != nil {
+		log.Fatalf("Failed to generate UUID: %v", err)
+	}
+	oauthStateString = u.String()
+}
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
@@ -217,8 +225,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func generateSessionToken() (string, error) {
-	token := uuid.New().String()
-	return token, nil
+	u, err := uuid.NewV4()
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
 }
 
 func GetUserByUsername(username string) (*User, error) {
@@ -457,7 +468,12 @@ func generateUsername(email, name, provider string) string {
 		err := DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)", username).Scan(&exists)
 		if err != nil {
 			log.Printf("Error checking username existence: %v", err)
-			return fmt.Sprintf("%s_%s", baseUsername, uuid.New().String())
+			u, err := uuid.NewV4()
+			if err != nil {
+				log.Printf("Failed to generate UUID: %v", err)
+				return fmt.Sprintf("%s_%d", baseUsername, time.Now().UnixNano())
+			}
+			return fmt.Sprintf("%s_%s", baseUsername, u.String())
 		}
 		if !exists {
 			return username
